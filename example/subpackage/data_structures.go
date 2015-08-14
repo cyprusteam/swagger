@@ -1,6 +1,6 @@
 package subpackage
 
 type SimpleStructure struct {
-	Id   int
-	Name string
+  Id   int
+  Name string
 }

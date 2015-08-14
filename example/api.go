@@ -2,19 +2,19 @@
 package example
 
 import (
-	"encoding/json"
-	"fmt"
+  "encoding/json"
+  "fmt"
 
-	"github.com/gocraft/web"
-	"github.com/yvasiyarov/swagger/example/subpackage"
+  "github.com/cyprusteam/swagger/example/subpackage"
+  "github.com/gocraft/web"
 )
 
 type Context struct {
-	response interface{}
+  response interface{}
 }
 
 func (c *Context) WriteResponse(response interface{}) {
-	c.response = response
+  c.response = response
 }
 
 // @Title GetStringByInt
@@ -26,7 +26,7 @@ func (c *Context) WriteResponse(response interface{}) {
 // @Failure 404 {object} APIError "Can not find ID"
 // @Router /testapi/get-string-by-int/{some_id} [get]
 func (c *Context) GetStringByInt(rw web.ResponseWriter, req *web.Request) {
-	c.WriteResponse(fmt.Sprint("Some data for %s ID", req.PathParams["some_id"]))
+  c.WriteResponse(fmt.Sprint("Some data for %s ID", req.PathParams["some_id"]))
 }
 
 // @Title GetStructByInt
@@ -40,7 +40,7 @@ func (c *Context) GetStringByInt(rw web.ResponseWriter, req *web.Request) {
 // @Failure 404 {object} APIError "Can not find ID"
 // @Router /testapi/get-struct-by-int/{some_id} [get]
 func (c *Context) GetStructByInt(rw web.ResponseWriter, req *web.Request) {
-	c.WriteResponse(StructureWithEmbededStructure{})
+  c.WriteResponse(StructureWithEmbededStructure{})
 }
 
 // @Title GetStruct2ByInt
@@ -54,7 +54,7 @@ func (c *Context) GetStructByInt(rw web.ResponseWriter, req *web.Request) {
 // @Failure 404 {object} APIError "Can not find ID"
 // @Router /testapi/get-struct2-by-int/{some_id} [get]
 func (c *Context) GetStruct2ByInt(rw web.ResponseWriter, req *web.Request) {
-	c.WriteResponse(StructureWithEmbededPointer{})
+  c.WriteResponse(StructureWithEmbededPointer{})
 }
 
 // @Title GetSimpleArrayByString
@@ -68,7 +68,7 @@ func (c *Context) GetStruct2ByInt(rw web.ResponseWriter, req *web.Request) {
 // @Failure 404 {object} APIError "Can not find ID"
 // @Router /testapi/get-simple-array-by-string/{some_id} [get]
 func (c *Context) GetSimpleArrayByString(rw web.ResponseWriter, req *web.Request) {
-	c.WriteResponse([]string{"one", "two", "three"})
+  c.WriteResponse([]string{"one", "two", "three"})
 }
 
 // @Title GetStructArrayByString
@@ -82,11 +82,11 @@ func (c *Context) GetSimpleArrayByString(rw web.ResponseWriter, req *web.Request
 // @Failure 404 {object} APIError "Can not find ID"
 // @Router /testapi/get-struct-array-by-string/{some_id} [get]
 func (c *Context) GetStructArrayByString(rw web.ResponseWriter, req *web.Request) {
-	c.WriteResponse([]subpackage.SimpleStructure{
-		subpackage.SimpleStructure{},
-		subpackage.SimpleStructure{},
-		subpackage.SimpleStructure{},
-	})
+  c.WriteResponse([]subpackage.SimpleStructure{
+    subpackage.SimpleStructure{},
+    subpackage.SimpleStructure{},
+    subpackage.SimpleStructure{},
+  })
 }
 
 // @Title GetInterface
@@ -97,7 +97,7 @@ func (c *Context) GetStructArrayByString(rw web.ResponseWriter, req *web.Request
 // @Failure 404 {object} APIError "Can not find ID"
 // @Router /testapi/get-interface [get]
 func (c *Context) GetInterface(rw web.ResponseWriter, req *web.Request) {
-	c.WriteResponse(InterfaceType("Some string"))
+  c.WriteResponse(InterfaceType("Some string"))
 }
 
 // @Title GetSimpleAliased
@@ -108,7 +108,7 @@ func (c *Context) GetInterface(rw web.ResponseWriter, req *web.Request) {
 // @Failure 404 {object} APIError "Can not find ID"
 // @Router /testapi/get-simple-aliased [get]
 func (c *Context) GetSimpleAliased(rw web.ResponseWriter, req *web.Request) {
-	c.WriteResponse("Some string")
+  c.WriteResponse("Some string")
 }
 
 // @Title GetArrayOfInterfaces
@@ -119,7 +119,7 @@ func (c *Context) GetSimpleAliased(rw web.ResponseWriter, req *web.Request) {
 // @Failure 404 {object} APIError "Can not find ID"
 // @Router /testapi/get-array-of-interfaces [get]
 func (c *Context) GetArrayOfInterfaces(rw web.ResponseWriter, req *web.Request) {
-	c.WriteResponse([]InterfaceType{"Some string", 123, "10"})
+  c.WriteResponse([]InterfaceType{"Some string", 123, "10"})
 }
 
 // @Title GetStruct3
@@ -130,26 +130,26 @@ func (c *Context) GetArrayOfInterfaces(rw web.ResponseWriter, req *web.Request) 
 // @Failure 404 {object} APIError "Can not find ID"
 // @Router /testapi/get-struct3 [get]
 func (c *Context) GetStruct3(rw web.ResponseWriter, req *web.Request) {
-	c.WriteResponse(StructureWithSlice{})
+  c.WriteResponse(StructureWithSlice{})
 }
 
 func InitRouter() *web.Router {
-	router := web.New(Context{}).
-		Middleware(web.LoggerMiddleware).
-		Middleware(web.ShowErrorsMiddleware).
-		Middleware(func(c *Context, rw web.ResponseWriter, req *web.Request, next web.NextMiddlewareFunc) {
-		resultJSON, _ := json.Marshal(c.response)
-		rw.Write(resultJSON)
-	}).
-		Get("/get-string-by-int/{some_id}", (*Context).GetStringByInt).
-		Get("/testapi/get-struct-by-int/{some_id}", (*Context).GetStructByInt).
-		Get("/testapi/get-simple-array-by-string/{some_id}", (*Context).GetSimpleArrayByString).
-		Get("/testapi/get-struct-array-by-string/{some_id}", (*Context).GetStructArrayByString).
-		Get("/testapi/get-interface", (*Context).GetInterface).
-		Get("/testapi/get-simple-aliased", (*Context).GetSimpleAliased).
-		Get("/testapi/get-array-of-interfaces", (*Context).GetArrayOfInterfaces).
-		Get("/testapi/get-struct3", (*Context).GetStruct3).
-		Get("/testapi/get-struct2-by-int/{some_id}", (*Context).GetStruct2ByInt)
+  router := web.New(Context{}).
+    Middleware(web.LoggerMiddleware).
+    Middleware(web.ShowErrorsMiddleware).
+    Middleware(func(c *Context, rw web.ResponseWriter, req *web.Request, next web.NextMiddlewareFunc) {
+    resultJSON, _ := json.Marshal(c.response)
+    rw.Write(resultJSON)
+  }).
+    Get("/get-string-by-int/{some_id}", (*Context).GetStringByInt).
+    Get("/testapi/get-struct-by-int/{some_id}", (*Context).GetStructByInt).
+    Get("/testapi/get-simple-array-by-string/{some_id}", (*Context).GetSimpleArrayByString).
+    Get("/testapi/get-struct-array-by-string/{some_id}", (*Context).GetStructArrayByString).
+    Get("/testapi/get-interface", (*Context).GetInterface).
+    Get("/testapi/get-simple-aliased", (*Context).GetSimpleAliased).
+    Get("/testapi/get-array-of-interfaces", (*Context).GetArrayOfInterfaces).
+    Get("/testapi/get-struct3", (*Context).GetStruct3).
+    Get("/testapi/get-struct2-by-int/{some_id}", (*Context).GetStruct2ByInt)
 
-	return router
+  return router
 }

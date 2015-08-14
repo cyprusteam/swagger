@@ -8,11 +8,11 @@
 package main
 
 import (
-	"github.com/yvasiyarov/swagger/example"
-	"net/http"
+  "github.com/cyprusteam/swagger/example"
+  "net/http"
 )
 
 func main() {
-	router := example.InitRouter()
-	http.ListenAndServe("localhost:3000", router)
+  router := example.InitRouter()
+  http.ListenAndServe("localhost:3000", router)
 }

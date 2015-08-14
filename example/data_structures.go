@@ -1,7 +1,7 @@
 package example
 
 import (
-//	"github.com/yvasiyarov/swagger/example/subpackage"
+//	"github.com/cyprusteam/swagger/example/subpackage"
 )
 
 type InterfaceType interface{}
@@ -9,28 +9,28 @@ type InterfaceType interface{}
 type SimpleAlias string
 
 type SimpleStructure struct {
-	Id   int
-	Name string
+  Id   int
+  Name string
 }
 
 type SimpleStructureWithAnnotations struct {
-	Id   int    `json:"id"`
-	Name string `json:"required,omitempty"`
+  Id   int    `json:"id"`
+  Name string `json:"required,omitempty"`
 }
 
 type StructureWithSlice struct {
-	Id   int
-	Name []byte
+  Id   int
+  Name []byte
 }
 
 type StructureWithEmbededStructure struct {
-	StructureWithSlice
+  StructureWithSlice
 }
 type StructureWithEmbededPointer struct {
-	*StructureWithSlice
+  *StructureWithSlice
 }
 
 type APIError struct {
-	ErrorCode    int
-	ErrorMessage string
+  ErrorCode    int
+  ErrorMessage string
 }
