@@ -1,471 +1,487 @@
 package parser
 
 import (
-	"encoding/json"
-	"go/ast"
-	goparser "go/parser"
-	"go/token"
-	"log"
-	"os"
-	"path/filepath"
-	"regexp"
-	"runtime"
-	"strings"
+  "encoding/json"
+  "go/ast"
+  goparser "go/parser"
+  "go/token"
+  "log"
+  "os"
+  "path/filepath"
+  "regexp"
+  "runtime"
+  "strings"
 )
 
 type Parser struct {
-	Listing                           *ResourceListing
-	TopLevelApis                      map[string]*ApiDeclaration
-	PackagesCache                     map[string]map[string]*ast.Package
-	CurrentPackage                    string
-	TypeDefinitions                   map[string]map[string]*ast.TypeSpec
-	PackagePathCache                  map[string]string
-	PackageImports                    map[string]map[string][]string
-	BasePath, ControllerClass         string
-	IsController                      func(*ast.FuncDecl, string) bool
-	TypesImplementingMarshalInterface map[string]string
+  Listing                                *ResourceListing
+  TopLevelApis                           map[string]*ApiDeclaration
+  PackagesCache                          map[string]map[string]*ast.Package
+  CurrentPackage                         string
+  TypeDefinitions                        map[string]map[string]*ast.TypeSpec
+  PackagePathCache                       map[string]string
+  PackageImports                         map[string]map[string][]string
+  BasePath, ControllerClass, PackageName string
+  IsController                           func(*ast.FuncDecl, string) bool
+  TypesImplementingMarshalInterface      map[string]string
 }
 
 func NewParser() *Parser {
-	return &Parser{
-		Listing: &ResourceListing{
-			Infos: Infomation{},
-			Apis:  make([]*ApiRef, 0),
-		},
-		PackagesCache:                     make(map[string]map[string]*ast.Package),
-		TopLevelApis:                      make(map[string]*ApiDeclaration),
-		TypeDefinitions:                   make(map[string]map[string]*ast.TypeSpec),
-		PackagePathCache:                  make(map[string]string),
-		PackageImports:                    make(map[string]map[string][]string),
-		TypesImplementingMarshalInterface: make(map[string]string),
-	}
+  return &Parser{
+    Listing: &ResourceListing{
+      Infos: Infomation{},
+      Apis:  make([]*ApiRef, 0),
+    },
+    PackagesCache:                     make(map[string]map[string]*ast.Package),
+    TopLevelApis:                      make(map[string]*ApiDeclaration),
+    TypeDefinitions:                   make(map[string]map[string]*ast.TypeSpec),
+    PackagePathCache:                  make(map[string]string),
+    PackageImports:                    make(map[string]map[string][]string),
+    TypesImplementingMarshalInterface: make(map[string]string),
+  }
 }
 
 func (parser *Parser) IsImplementMarshalInterface(typeName string) bool {
-	_, ok := parser.TypesImplementingMarshalInterface[typeName]
-	return ok
+  _, ok := parser.TypesImplementingMarshalInterface[typeName]
+  return ok
 }
 
 //Read web/main.go to get General info
 func (parser *Parser) ParseGeneralApiInfo(mainApiFile string) {
 
-	fileSet := token.NewFileSet()
-	fileTree, err := goparser.ParseFile(fileSet, mainApiFile, nil, goparser.ParseComments)
-	if err != nil {
-		log.Fatalf("Can not parse general API information: %v\n", err)
-	}
+  fileSet := token.NewFileSet()
+  fileTree, err := goparser.ParseFile(fileSet, mainApiFile, nil, goparser.ParseComments)
+  if err != nil {
+    log.Fatalf("Can not parse general API information: %v\n", err)
+  }
 
-	parser.Listing.SwaggerVersion = SwaggerVersion
-	if fileTree.Comments != nil {
-		for _, comment := range fileTree.Comments {
-			for _, commentLine := range strings.Split(comment.Text(), "\n") {
-				attribute := strings.ToLower(strings.Split(commentLine, " ")[0])
-				switch attribute {
-				case "@apiversion":
-					parser.Listing.ApiVersion = strings.TrimSpace(commentLine[len(attribute):])
-				case "@apititle":
-					parser.Listing.Infos.Title = strings.TrimSpace(commentLine[len(attribute):])
-				case "@apidescription":
-					parser.Listing.Infos.Description = strings.TrimSpace(commentLine[len(attribute):])
-				case "@termsofserviceurl":
-					parser.Listing.Infos.TermsOfServiceUrl = strings.TrimSpace(commentLine[len(attribute):])
-				case "@contact":
-					parser.Listing.Infos.Contact = strings.TrimSpace(commentLine[len(attribute):])
-				case "@licenseurl":
-					parser.Listing.Infos.LicenseUrl = strings.TrimSpace(commentLine[len(attribute):])
-				case "@license":
-					parser.Listing.Infos.License = strings.TrimSpace(commentLine[len(attribute):])
-				}
-			}
-		}
-	}
+  parser.Listing.SwaggerVersion = SwaggerVersion
+  if fileTree.Comments != nil {
+    for _, comment := range fileTree.Comments {
+      for _, commentLine := range strings.Split(comment.Text(), "\n") {
+        attribute := strings.ToLower(strings.Split(commentLine, " ")[0])
+        switch attribute {
+        case "@apiversion":
+          parser.Listing.ApiVersion = strings.TrimSpace(commentLine[len(attribute):])
+        case "@apititle":
+          parser.Listing.Infos.Title = strings.TrimSpace(commentLine[len(attribute):])
+        case "@apidescription":
+          parser.Listing.Infos.Description = strings.TrimSpace(commentLine[len(attribute):])
+        case "@termsofserviceurl":
+          parser.Listing.Infos.TermsOfServiceUrl = strings.TrimSpace(commentLine[len(attribute):])
+        case "@contact":
+          parser.Listing.Infos.Contact = strings.TrimSpace(commentLine[len(attribute):])
+        case "@licenseurl":
+          parser.Listing.Infos.LicenseUrl = strings.TrimSpace(commentLine[len(attribute):])
+        case "@license":
+          parser.Listing.Infos.License = strings.TrimSpace(commentLine[len(attribute):])
+        }
+      }
+    }
+  }
 }
 
 func (parser *Parser) GetResourceListingJson() []byte {
-	json, err := json.MarshalIndent(parser.Listing, "", "    ")
-	if err != nil {
-		log.Fatalf("Can not serialise ResourceListing to JSON: %v\n", err)
-	}
-	return json
+  json, err := json.MarshalIndent(parser.Listing, "", "    ")
+  if err != nil {
+    log.Fatalf("Can not serialise ResourceListing to JSON: %v\n", err)
+  }
+  return json
 }
 
 func (parser *Parser) GetApiDescriptionJson() []byte {
-	json, err := json.MarshalIndent(parser.TopLevelApis, "", "    ")
-	if err != nil {
-		log.Fatalf("Can not serialise []ApiDescription to JSON: %v\n", err)
-	}
-	return json
+  json, err := json.MarshalIndent(parser.TopLevelApis, "", "    ")
+  if err != nil {
+    log.Fatalf("Can not serialise []ApiDescription to JSON: %v\n", err)
+  }
+  return json
 }
 
 func (parser *Parser) CheckRealPackagePath(packagePath string) string {
-	packagePath = strings.Trim(packagePath, "\"")
+  packagePath = strings.Trim(packagePath, "\"")
 
-	if cachedResult, ok := parser.PackagePathCache[packagePath]; ok {
-		return cachedResult
-	}
+  if cachedResult, ok := parser.PackagePathCache[packagePath]; ok {
+    return cachedResult
+  }
 
-	gopath := os.Getenv("GOPATH")
-	if gopath == "" {
-		log.Fatalf("Please, set $GOPATH environment variable\n")
-	}
+  gopath := os.Getenv("GOPATH")
+  if gopath == "" {
+    log.Fatalf("Please, set $GOPATH environment variable\n")
+  }
 
-	// first check GOPATH
-	pkgRealpath := ""
-	gopathsList := filepath.SplitList(gopath)
-	for _, path := range gopathsList {
-		if evalutedPath, err := filepath.EvalSymlinks(filepath.Join(path, "src", packagePath)); err == nil {
-			if _, err := os.Stat(evalutedPath); err == nil {
-				pkgRealpath = evalutedPath
-				break
-			}
-		}
-	}
+  // first check GOPATH
+  pkgRealpath := ""
+  gopathsList := filepath.SplitList(gopath)
+  for _, path := range gopathsList {
+    if evalutedPath, err := filepath.EvalSymlinks(filepath.Join(path, "src", packagePath)); err == nil {
+      if _, err := os.Stat(evalutedPath); err == nil {
+        pkgRealpath = evalutedPath
+        break
+      }
+    }
+  }
 
-	// next, check GOROOT (/src)
-	if pkgRealpath == "" {
-		goroot := filepath.Clean(runtime.GOROOT())
-		if goroot == "" {
-			log.Fatalf("Please, set $GOROOT environment variable\n")
-		}
-		if evalutedPath, err := filepath.EvalSymlinks(filepath.Join(goroot, "src", packagePath)); err == nil {
-			if _, err := os.Stat(evalutedPath); err == nil {
-				pkgRealpath = evalutedPath
-			}
-		}
+  // next, check GOROOT (/src)
+  if pkgRealpath == "" {
+    goroot := filepath.Clean(runtime.GOROOT())
+    if goroot == "" {
+      log.Fatalf("Please, set $GOROOT environment variable\n")
+    }
+    if evalutedPath, err := filepath.EvalSymlinks(filepath.Join(goroot, "src", packagePath)); err == nil {
+      if _, err := os.Stat(evalutedPath); err == nil {
+        pkgRealpath = evalutedPath
+      }
+    }
 
-		// next, check GOROOT (/src/pkg) (for golang < v1.4)
-		if pkgRealpath == "" {
-			if evalutedPath, err := filepath.EvalSymlinks(filepath.Join(goroot, "src", "pkg", packagePath)); err == nil {
-				if _, err := os.Stat(evalutedPath); err == nil {
-					pkgRealpath = evalutedPath
-				}
-			}
-		}
-	}
-	parser.PackagePathCache[packagePath] = pkgRealpath
-	return pkgRealpath
+    // next, check GOROOT (/src/pkg) (for golang < v1.4)
+    if pkgRealpath == "" {
+      if evalutedPath, err := filepath.EvalSymlinks(filepath.Join(goroot, "src", "pkg", packagePath)); err == nil {
+        if _, err := os.Stat(evalutedPath); err == nil {
+          pkgRealpath = evalutedPath
+        }
+      }
+    }
+  }
+
+  // next, check relative path
+  if pkgRealpath == "" {
+    if evalutedPath, err := filepath.Abs(packagePath); err == nil {
+      pkgRealpath = evalutedPath
+    }
+  }
+
+  parser.PackagePathCache[packagePath] = pkgRealpath
+  return pkgRealpath
 }
 
 func (parser *Parser) GetRealPackagePath(packagePath string) string {
-	pkgRealpath := parser.CheckRealPackagePath(packagePath)
-	if pkgRealpath == "" {
-		log.Fatalf("Can not find package %s \n", packagePath)
-	}
+  pkgRealpath := parser.CheckRealPackagePath(packagePath)
+  if pkgRealpath == "" {
+    log.Fatalf("Can not find package %s \n", packagePath)
+  }
 
-	return pkgRealpath
+  return pkgRealpath
 }
 
 func (parser *Parser) GetPackageAst(packagePath string) map[string]*ast.Package {
-	//log.Printf("Parse %s package\n", packagePath)
-	if cache, ok := parser.PackagesCache[packagePath]; ok {
-		return cache
-	} else {
-		fileSet := token.NewFileSet()
+  //log.Printf("Parse %s package\n", packagePath)
+  if cache, ok := parser.PackagesCache[packagePath]; ok {
+    return cache
+  } else {
+    fileSet := token.NewFileSet()
 
-		astPackages, err := goparser.ParseDir(fileSet, packagePath, ParserFileFilter, goparser.ParseComments)
-		if err != nil {
-			log.Fatalf("Parse of %s pkg cause error: %s\n", packagePath, err)
-		}
-		parser.PackagesCache[packagePath] = astPackages
-		return astPackages
-	}
+    astPackages, err := goparser.ParseDir(fileSet, packagePath, ParserFileFilter, goparser.ParseComments)
+    if err != nil {
+      log.Fatalf("Parse of %s pkg cause error: %s\n", packagePath, err)
+    }
+    parser.PackagesCache[packagePath] = astPackages
+    return astPackages
+  }
 }
 
 func (parser *Parser) AddOperation(op *Operation) {
-	path := []string{}
-	for _, pathPart := range strings.Split(op.Path, "/") {
-		if pathPart = strings.TrimSpace(pathPart); pathPart != "" {
-			path = append(path, pathPart)
-		}
-	}
+  path := []string{}
+  for _, pathPart := range strings.Split(op.Path, "/") {
+    if pathPart = strings.TrimSpace(pathPart); pathPart != "" {
+      path = append(path, pathPart)
+    }
+  }
 
-	resource := path[0]
-	if op.ForceResource != "" {
-		resource = op.ForceResource
-	}
+  resource := path[0]
+  if op.ForceResource != "" {
+    resource = op.ForceResource
+  }
 
-	api, ok := parser.TopLevelApis[resource]
-	if !ok {
-		api = NewApiDeclaration()
+  api, ok := parser.TopLevelApis[resource]
+  if !ok {
+    api = NewApiDeclaration()
 
-		api.ApiVersion = parser.Listing.ApiVersion
-		api.SwaggerVersion = SwaggerVersion
-		api.ResourcePath = "/" + resource
-		api.BasePath = parser.BasePath
+    api.ApiVersion = parser.Listing.ApiVersion
+    api.SwaggerVersion = SwaggerVersion
+    api.ResourcePath = "/" + resource
+    api.BasePath = parser.BasePath
 
-		parser.TopLevelApis[resource] = api
-	}
+    parser.TopLevelApis[resource] = api
+  }
 
-	found := false
-	for _, apiRef := range parser.Listing.Apis {
-		if apiRef.Path == api.ResourcePath {
-			found = true
-		}
-	}
-	if !found {
-		apiRef := &ApiRef{
-			Path:        api.ResourcePath,
-			Description: op.Summary,
-		}
-		parser.Listing.Apis = append(parser.Listing.Apis, apiRef)
-	}
+  found := false
+  for _, apiRef := range parser.Listing.Apis {
+    if apiRef.Path == api.ResourcePath {
+      found = true
+    }
+  }
+  if !found {
+    apiRef := &ApiRef{
+      Path:        api.ResourcePath,
+      Description: op.Summary,
+    }
+    parser.Listing.Apis = append(parser.Listing.Apis, apiRef)
+  }
 
-	api.AddOperation(op)
+  api.AddOperation(op)
 }
 
 func (parser *Parser) ParseApi(packageNames string) {
-	packages := parser.ScanPackages(strings.Split(packageNames, ","))
-	for _, packageName := range packages {
-		parser.ParseTypeDefinitions(packageName)
-	}
-	for _, packageName := range packages {
-		parser.ParseApiDescription(packageName)
-	}
+  packages := parser.ScanPackages(strings.Split(packageNames, ","))
+  for _, packageName := range packages {
+    parser.ParseTypeDefinitions(packageName)
+  }
+  for _, packageName := range packages {
+    parser.ParseApiDescription(packageName)
+  }
 }
 
 func (parser *Parser) ScanPackages(packages []string) []string {
-	res := make([]string, len(packages))
-	existsPackages := make(map[string]bool)
+  res := make([]string, len(packages))
+  existsPackages := make(map[string]bool)
 
-	for _, packageName := range packages {
-		if v, ok := existsPackages[packageName]; !ok || v == false {
-			// Add package
-			existsPackages[packageName] = true
-			res = append(res, packageName)
-			// get it's real path
-			pkgRealPath := parser.GetRealPackagePath(packageName)
-			// Then walk
-			var walker filepath.WalkFunc = func(path string, info os.FileInfo, err error) error {
-				if info.IsDir() {
-					if idx := strings.Index(path, packageName); idx != -1 {
-						pack := path[idx:]
-						if v, ok := existsPackages[pack]; !ok || v == false {
-							existsPackages[pack] = true
-							res = append(res, pack)
-						}
-					}
-				}
-				return nil
-			}
-			filepath.Walk(pkgRealPath, walker)
-		}
-	}
-	return res
+  for _, packageName := range packages {
+    if v, ok := existsPackages[packageName]; !ok || v == false {
+      // Add package
+      existsPackages[packageName] = true
+      res = append(res, packageName)
+      // get it's real path
+      pkgRealPath := parser.GetRealPackagePath(packageName)
+      // Then walk
+      var walker filepath.WalkFunc = func(path string, info os.FileInfo, err error) error {
+        if info.IsDir() {
+          if idx := strings.Index(path, packageName); idx != -1 {
+            pack := path[idx:]
+            if v, ok := existsPackages[pack]; !ok || v == false {
+              existsPackages[pack] = true
+              res = append(res, pack)
+            }
+          }
+        }
+        return nil
+      }
+      filepath.Walk(pkgRealPath, walker)
+    }
+  }
+  return res
 }
 
 func (parser *Parser) ParseTypeDefinitions(packageName string) {
-	parser.CurrentPackage = packageName
-	pkgRealPath := parser.GetRealPackagePath(packageName)
-	//	log.Printf("Parse type definition of %#v\n", packageName)
+  parser.CurrentPackage = packageName
+  pkgRealPath := parser.GetRealPackagePath(packageName)
+  //	log.Printf("Parse type definition of %#v\n", packageName)
 
-	if _, ok := parser.TypeDefinitions[pkgRealPath]; !ok {
-		parser.TypeDefinitions[pkgRealPath] = make(map[string]*ast.TypeSpec)
-	}
+  if _, ok := parser.TypeDefinitions[pkgRealPath]; !ok {
+    parser.TypeDefinitions[pkgRealPath] = make(map[string]*ast.TypeSpec)
+  }
 
-	astPackages := parser.GetPackageAst(pkgRealPath)
-	for _, astPackage := range astPackages {
-		for _, astFile := range astPackage.Files {
-			for _, astDeclaration := range astFile.Decls {
-				if generalDeclaration, ok := astDeclaration.(*ast.GenDecl); ok && generalDeclaration.Tok == token.TYPE {
-					for _, astSpec := range generalDeclaration.Specs {
-						if typeSpec, ok := astSpec.(*ast.TypeSpec); ok {
-							parser.TypeDefinitions[pkgRealPath][typeSpec.Name.String()] = typeSpec
-						}
-					}
-				}
-			}
-		}
-	}
+  astPackages := parser.GetPackageAst(pkgRealPath)
+  for _, astPackage := range astPackages {
+    for _, astFile := range astPackage.Files {
+      for _, astDeclaration := range astFile.Decls {
+        if generalDeclaration, ok := astDeclaration.(*ast.GenDecl); ok && generalDeclaration.Tok == token.TYPE {
+          for _, astSpec := range generalDeclaration.Specs {
+            if typeSpec, ok := astSpec.(*ast.TypeSpec); ok {
+              parser.TypeDefinitions[pkgRealPath][typeSpec.Name.String()] = typeSpec
+            }
+          }
+        }
+      }
+    }
+  }
 
-	//log.Fatalf("Type definition parsed %#v\n", parser.ParseImportStatements(packageName))
+  //log.Fatalf("Type definition parsed %#v\n", parser.ParseImportStatements(packageName))
 
-	for importedPackage, _ := range parser.ParseImportStatements(packageName) {
-		//log.Printf("Import: %v, %v\n", importedPackage, v)
-		parser.ParseTypeDefinitions(importedPackage)
-	}
+  for importedPackage, _ := range parser.ParseImportStatements(packageName) {
+    //log.Printf("Import: %v, %v\n", importedPackage, v)
+    if strings.HasPrefix(importedPackage, ".") {
+      parser.ParseTypeDefinitions(filepath.Join(packageName, importedPackage))
+    } else {
+      parser.ParseTypeDefinitions(importedPackage)
+    }
+  }
 }
 
 func (parser *Parser) ParseImportStatements(packageName string) map[string]bool {
 
-	parser.CurrentPackage = packageName
-	pkgRealPath := parser.GetRealPackagePath(packageName)
+  parser.CurrentPackage = packageName
+  pkgRealPath := parser.GetRealPackagePath(packageName)
 
-	imports := make(map[string]bool)
-	astPackages := parser.GetPackageAst(pkgRealPath)
+  imports := make(map[string]bool)
+  astPackages := parser.GetPackageAst(pkgRealPath)
 
-	parser.PackageImports[pkgRealPath] = make(map[string][]string)
-	for _, astPackage := range astPackages {
-		for _, astFile := range astPackage.Files {
-			for _, astImport := range astFile.Imports {
-				importedPackageName := strings.Trim(astImport.Path.Value, "\"")
-				if !IsIgnoredPackage(importedPackageName) {
-					realPath := parser.GetRealPackagePath(importedPackageName)
-					//log.Printf("path: %#v, original path: %#v", realPath, astImport.Path.Value)
-					if _, ok := parser.TypeDefinitions[realPath]; !ok {
-						imports[importedPackageName] = true
-						//log.Printf("Parse %s, Add new import definition:%s\n", packageName, astImport.Path.Value)
-					}
+  parser.PackageImports[pkgRealPath] = make(map[string][]string)
+  for _, astPackage := range astPackages {
+    for _, astFile := range astPackage.Files {
+      for _, astImport := range astFile.Imports {
+        importedPackageName := strings.Trim(astImport.Path.Value, "\"")
+        if !IsIgnoredPackage(importedPackageName) {
+          realPath := parser.GetRealPackagePath(importedPackageName)
+          //log.Printf("path: %#v, original path: %#v", realPath, astImport.Path.Value)
+          if _, ok := parser.TypeDefinitions[realPath]; !ok {
+            imports[importedPackageName] = true
+            //log.Printf("Parse %s, Add new import definition:%s\n", packageName, astImport.Path.Value)
+          }
 
-					var importedPackageAlias string
-					if astImport.Name != nil && astImport.Name.Name != "." && astImport.Name.Name != "_" {
-						importedPackageAlias = astImport.Name.Name
-					} else {
-						importPath := strings.Split(importedPackageName, "/")
-						importedPackageAlias = importPath[len(importPath)-1]
-					}
+          var importedPackageAlias string
+          if astImport.Name != nil && astImport.Name.Name != "." && astImport.Name.Name != "_" {
+            importedPackageAlias = astImport.Name.Name
+          } else {
+            importPath := strings.Split(importedPackageName, "/")
+            importedPackageAlias = importPath[len(importPath)-1]
+          }
 
-					isExists := false
-					for _, v := range parser.PackageImports[pkgRealPath][importedPackageAlias] {
-						if v == importedPackageName {
-							isExists = true
-						}
-					}
+          isExists := false
+          for _, v := range parser.PackageImports[pkgRealPath][importedPackageAlias] {
+            if v == importedPackageName {
+              isExists = true
+            }
+          }
 
-					if !isExists {
-						parser.PackageImports[pkgRealPath][importedPackageAlias] = append(parser.PackageImports[pkgRealPath][importedPackageAlias], importedPackageName)
-					}
-				}
-			}
-		}
-	}
-	return imports
+          if !isExists {
+            parser.PackageImports[pkgRealPath][importedPackageAlias] = append(parser.PackageImports[pkgRealPath][importedPackageAlias], importedPackageName)
+          }
+        }
+      }
+    }
+  }
+  return imports
 }
 
 func (parser *Parser) GetModelDefinition(model string, packageName string) *ast.TypeSpec {
-	pkgRealPath := parser.CheckRealPackagePath(packageName)
-	if pkgRealPath == "" {
-		return nil
-	}
+  pkgRealPath := parser.CheckRealPackagePath(packageName)
+  if pkgRealPath == "" {
+    return nil
+  }
 
-	packageModels, ok := parser.TypeDefinitions[pkgRealPath]
-	if !ok {
-		return nil
-	}
-	astTypeSpec, _ := packageModels[model]
-	return astTypeSpec
+  packageModels, ok := parser.TypeDefinitions[pkgRealPath]
+  if !ok {
+    return nil
+  }
+  astTypeSpec, _ := packageModels[model]
+  return astTypeSpec
 }
 
 func (parser *Parser) FindModelDefinition(modelName string, currentPackage string) (*ast.TypeSpec, string) {
-	var model *ast.TypeSpec
-	var modelPackage string
+  var model *ast.TypeSpec
+  var modelPackage string
 
-	modelNameParts := strings.Split(modelName, ".")
+  modelNameParts := strings.Split(modelName, ".")
 
-	//if no dot in name - it can be only model from current package
-	if len(modelNameParts) == 1 {
-		modelPackage = currentPackage
-		if model = parser.GetModelDefinition(modelName, currentPackage); model == nil {
-			log.Fatalf("Can not find definition of %s model. Current package %s", modelName, currentPackage)
-		}
-	} else {
-		//first try to assume what name is absolute
-		absolutePackageName := strings.Join(modelNameParts[:len(modelNameParts)-1], "/")
-		modelNameFromPath := modelNameParts[len(modelNameParts)-1]
+  //if no dot in name - it can be only model from current package
+  if len(modelNameParts) == 1 {
+    modelPackage = currentPackage
+    if model = parser.GetModelDefinition(modelName, currentPackage); model == nil {
+      log.Fatalf("Can not find definition of %s model. Current package %s", modelName, currentPackage)
+    }
+  } else {
+    //first try to assume what name is absolute
+    absolutePackageName := strings.Join(modelNameParts[:len(modelNameParts)-1], "/")
+    modelNameFromPath := modelNameParts[len(modelNameParts)-1]
 
-		modelPackage = absolutePackageName
-		if model = parser.GetModelDefinition(modelNameFromPath, absolutePackageName); model == nil {
+    modelPackage = absolutePackageName
+    if model = parser.GetModelDefinition(modelNameFromPath, absolutePackageName); model == nil {
 
-			//can not get model by absolute name.
-			if len(modelNameParts) > 2 {
-				log.Fatalf("Can not find definition of %s model. Name looks like absolute, but model not found in %s package", modelNameFromPath, absolutePackageName)
-			}
+      //can not get model by absolute name.
+      if len(modelNameParts) > 2 {
+        log.Fatalf("Can not find definition of %s model. Name looks like absolute, but model not found in %s package", modelNameFromPath, absolutePackageName)
+      }
 
-			// lets try to find it in imported packages
-			pkgRealPath := parser.CheckRealPackagePath(currentPackage)
-			if imports, ok := parser.PackageImports[pkgRealPath]; !ok {
-				log.Fatalf("Can not find definition of %s model. Package %s dont import anything", modelNameFromPath, pkgRealPath)
-			} else if relativePackage, ok := imports[modelNameParts[0]]; !ok {
-				log.Fatalf("Package %s is not imported to %s, Imported: %#v\n", modelNameParts[0], currentPackage, imports)
-			} else {
-				var modelFound bool
+      // lets try to find it in imported packages
+      pkgRealPath := parser.CheckRealPackagePath(currentPackage)
+      if imports, ok := parser.PackageImports[pkgRealPath]; !ok {
+        log.Fatalf("Can not find definition of %s model. Package %s dont import anything", modelNameFromPath, pkgRealPath)
+      } else if relativePackage, ok := imports[modelNameParts[0]]; !ok {
+        log.Fatalf("Package %s is not imported to %s, Imported: %#v\n", modelNameParts[0], currentPackage, imports)
+      } else {
+        var modelFound bool
 
-				for _, packageName := range relativePackage {
-					if model = parser.GetModelDefinition(modelNameFromPath, packageName); model != nil {
-						modelPackage = packageName
-						modelFound = true
+        for _, packageName := range relativePackage {
+          //
+          if strings.HasPrefix(packageName, ".") {
+            packageName = filepath.Join(currentPackage, relativePackage[0])
+          }
+          if model = parser.GetModelDefinition(modelNameFromPath, packageName); model != nil {
+            modelPackage = packageName
+            modelFound = true
 
-						break
-					}
-				}
+            break
+          }
+        }
 
-				if !modelFound {
-					log.Fatalf("Can not find definition of %s model in package %s", modelNameFromPath, relativePackage)
-				}
-			}
-		}
-	}
-	return model, modelPackage
+        if !modelFound {
+          log.Fatalf("Can not find definition of %s model in package %s", modelNameFromPath, relativePackage)
+        }
+      }
+    }
+  }
+  return model, modelPackage
 }
 
 func (parser *Parser) ParseApiDescription(packageName string) {
-	parser.CurrentPackage = packageName
-	pkgRealPath := parser.GetRealPackagePath(packageName)
+  parser.CurrentPackage = packageName
+  pkgRealPath := parser.GetRealPackagePath(packageName)
 
-	astPackages := parser.GetPackageAst(pkgRealPath)
-	for _, astPackage := range astPackages {
-		for _, astFile := range astPackage.Files {
-			for _, astDescription := range astFile.Decls {
-				switch astDeclaration := astDescription.(type) {
-				case *ast.FuncDecl:
-					if parser.IsController(astDeclaration, parser.ControllerClass) {
-						operation := NewOperation(parser, packageName)
-						if astDeclaration.Doc != nil && astDeclaration.Doc.List != nil {
-							for _, comment := range astDeclaration.Doc.List {
-								if err := operation.ParseComment(comment.Text); err != nil {
-									log.Printf("Can not parse comment for function: %v, package: %v, got error: %v\n", astDeclaration.Name.String(), packageName, err)
-								}
-							}
-						}
-						if operation.Path != "" {
-							parser.AddOperation(operation)
-						}
-					}
-				}
-			}
-			for _, astComment := range astFile.Comments {
-				for _, commentLine := range strings.Split(astComment.Text(), "\n") {
-					parser.ParseSubApiDescription(commentLine)
-				}
-			}
-		}
-	}
+  astPackages := parser.GetPackageAst(pkgRealPath)
+  for _, astPackage := range astPackages {
+    for _, astFile := range astPackage.Files {
+      for _, astDescription := range astFile.Decls {
+        switch astDeclaration := astDescription.(type) {
+        case *ast.FuncDecl:
+          if parser.IsController(astDeclaration, parser.ControllerClass) {
+            operation := NewOperation(parser, packageName)
+            if astDeclaration.Doc != nil && astDeclaration.Doc.List != nil {
+              for _, comment := range astDeclaration.Doc.List {
+                if err := operation.ParseComment(comment.Text); err != nil {
+                  log.Printf("Can not parse comment for function: %v, package: %v, got error: %v\n", astDeclaration.Name.String(), packageName, err)
+                }
+              }
+            }
+            if operation.Path != "" {
+              parser.AddOperation(operation)
+            }
+          }
+        }
+      }
+      for _, astComment := range astFile.Comments {
+        for _, commentLine := range strings.Split(astComment.Text(), "\n") {
+          parser.ParseSubApiDescription(commentLine)
+        }
+      }
+    }
+  }
 }
 
 // Parse sub api declaration
 // @SubApi Very fancy API [/fancy-api]
 func (parser *Parser) ParseSubApiDescription(commentLine string) {
-	if !strings.HasPrefix(commentLine, "@SubApi") {
-		return
-	} else {
-		commentLine = strings.TrimSpace(commentLine[len("@SubApi"):])
-	}
-	re := regexp.MustCompile(`([^\[]+)\[{1}([\w\_\-/]+)`)
+  if !strings.HasPrefix(commentLine, "@SubApi") {
+    return
+  } else {
+    commentLine = strings.TrimSpace(commentLine[len("@SubApi"):])
+  }
+  re := regexp.MustCompile(`([^\[]+)\[{1}([\w\_\-/]+)`)
 
-	if matches := re.FindStringSubmatch(commentLine); len(matches) != 3 {
-		log.Printf("Can not parse sub api description %s, skipped", commentLine)
-	} else {
-		found := false
-		for _, ref := range parser.Listing.Apis {
-			if ref.Path == matches[2] {
-				found = true
-				ref.Description = strings.TrimSpace(matches[1])
-			}
-		}
-		if !found {
-			subApi := &ApiRef{Path: matches[2],
-				Description: strings.TrimSpace(matches[1]),
-			}
-			parser.Listing.Apis = append(parser.Listing.Apis, subApi)
-		}
-	}
+  if matches := re.FindStringSubmatch(commentLine); len(matches) != 3 {
+    log.Printf("Can not parse sub api description %s, skipped", commentLine)
+  } else {
+    found := false
+    for _, ref := range parser.Listing.Apis {
+      if ref.Path == matches[2] {
+        found = true
+        ref.Description = strings.TrimSpace(matches[1])
+      }
+    }
+    if !found {
+      subApi := &ApiRef{Path: matches[2],
+        Description: strings.TrimSpace(matches[1]),
+      }
+      parser.Listing.Apis = append(parser.Listing.Apis, subApi)
+    }
+  }
 }
 
 func IsIgnoredPackage(packageName string) bool {
-	r, _ := regexp.Compile("appengine+")
-	return packageName == "C" || r.MatchString(packageName)
+  r, _ := regexp.Compile("appengine+")
+  return packageName == "C" || r.MatchString(packageName)
 }
 
 func ParserFileFilter(info os.FileInfo) bool {
-	name := info.Name()
-	return !info.IsDir() && !strings.HasPrefix(name, ".") && strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go")
+  name := info.Name()
+  return !info.IsDir() && !strings.HasPrefix(name, ".") && strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go")
 }
